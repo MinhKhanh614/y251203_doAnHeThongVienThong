@@ -65,6 +65,15 @@ void handle_Process()
     // DO SOMETHING
     BREAK;
     
+    CASE STATE4:
+    LCD.LINE1.PRINT("SYSTEM LOCKED")
+    LCD.LINE2.PRINT("TIMEOUT: " + LOCK_TIME + "S")
+    SET_TIMEOUT(LOCK_TIME)
+    IF(TIMEOUT)
+      COUNT = 0
+      LCD.CLEAR_SCREEN
+      SET_NOW_STATE(STATE1)
+    BREAK;
   }
 }
 // void app_run()
