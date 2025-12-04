@@ -1,10 +1,5 @@
 #include "MK_app.h"
 
-// Khởi tạo queues
-QueueHandle_t keypadQueue = NULL;
-QueueHandle_t mainQueue = NULL;
-QueueHandle_t displayQueue = NULL;
-
 void module_init()
 {
   keypad_init();

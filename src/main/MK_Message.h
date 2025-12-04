@@ -32,7 +32,7 @@ struct Message
     Message(MessageType t, String d) : type(t), data(d), timestamp(millis()) {}
 };
 
-// Queue declarations (sẽ được khởi tạo trong MK_app.cpp)
+// Queue declarations (khởi tạo trong MK_Message.cpp)
 extern QueueHandle_t keypadQueue;
 extern QueueHandle_t mainQueue;
 extern QueueHandle_t displayQueue;
