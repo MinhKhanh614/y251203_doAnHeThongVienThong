@@ -5,6 +5,8 @@
 static String line1 = "";
 static String line2 = "";
 static String passwordDisplay = "";
+static unsigned long lastDisplayTime = 0;
+static String lastDisplayRaw = "";
 
 void displayMessage(const Message &msg)
 {
@@ -12,6 +14,13 @@ void displayMessage(const Message &msg)
     {
     case MSG_DISPLAY_UPDATE:
     {
+        // debounce identical display updates within short interval
+        unsigned long now = millis();
+        if (msg.data == lastDisplayRaw && (now - lastDisplayTime) < 300)
+            break;
+        lastDisplayRaw = msg.data;
+        lastDisplayTime = now;
+
         // Format: "Line1|Line2" - adjust for 16x2 LCD
         int delimPos = msg.data.indexOf('|');
         if (delimPos != -1)
@@ -57,6 +66,9 @@ void displayMessage(const Message &msg)
 
     case MSG_PASSWORD_INPUT:
     {
+        // If we're currently showing PHONE AUTH, ignore transient password input
+        if (line1.startsWith("PHONE AUTH"))
+            break;
         // Hiển thị password (dưới dạng dấu *)
         passwordDisplay = msg.data;
         lcd.setCursor(0, 1);
@@ -74,6 +86,9 @@ void displayMessage(const Message &msg)
         lcd.print("PASSWORD OK");
         lcd.setCursor(0, 1);
         lcd.print("Waiting...");
+        // update cached display lines (pad to 16)
+        line1 = String("PASSWORD OK") + String(' ', 6);
+        line2 = String("Waiting...") + String(' ', 6);
         delay(1500);
         break;
     }
@@ -85,6 +100,14 @@ void displayMessage(const Message &msg)
         lcd.print("WRONG PASSWORD");
         lcd.setCursor(0, 1);
         lcd.print("Try: " + msg.data);
+        // cache lines padded
+        line1 = String("WRONG PASSWORD") + String(' ', 3);
+        {
+            String t2 = String("Try: ") + msg.data;
+            while (t2.length() < 16)
+                t2 += ' ';
+            line2 = t2;
+        }
         delay(1500);
         break;
     }
@@ -95,7 +118,14 @@ void displayMessage(const Message &msg)
         lcd.setCursor(0, 0);
         lcd.print("SYS LOCKED");
         lcd.setCursor(0, 1);
-        lcd.print("Wait:" + msg.data + "s");
+        {
+            String t = "Wait:" + msg.data + "s";
+            while (t.length() < 16)
+                t += ' ';
+            lcd.print(t);
+            line1 = String("SYS LOCKED") + String(' ', 6);
+            line2 = t;
+        }
         break;
     }
 
@@ -109,7 +139,12 @@ void displayMessage(const Message &msg)
         String displayNum = msg.data;
         if (displayNum.length() > 10)
             displayNum = displayNum.substring(0, 10);
-        lcd.print(displayNum);
+        String t2 = displayNum;
+        while (t2.length() < 16)
+            t2 += ' ';
+        lcd.print(t2);
+        line1 = String("AUTH OK") + String(' ', 9);
+        line2 = t2;
         delay(2000);
         break;
     }
@@ -119,6 +154,8 @@ void displayMessage(const Message &msg)
         lcd.clear();
         lcd.setCursor(0, 0);
         lcd.print("AUTH TIMEOUT");
+        line1 = String("AUTH TIMEOUT") + String(' ', 4);
+        line2 = String(' ', 16);
         delay(1500);
         break;
     }
@@ -130,6 +167,13 @@ void displayMessage(const Message &msg)
         lcd.print("ACCESS GRANTED");
         lcd.setCursor(0, 1);
         lcd.print("SYSTEM ACTIVE");
+        line1 = String("ACCESS GRANTED") + String(' ', 3);
+        {
+            String t = "SYSTEM ACTIVE";
+            while (t.length() < 16)
+                t += ' ';
+            line2 = t;
+        }
         delay(500);
         break;
     }
