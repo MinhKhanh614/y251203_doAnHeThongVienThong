@@ -19,12 +19,12 @@ void loop() {
   //   flagSIM = true;
   // }
 
-  if(flagSIM)
-  {
-    Serial.print(incomingNumber);
-    incomingNumber = "";
-    flagSIM = false;
-  }
+  // if(flagSIM)
+  // {
+  //   Serial.print(incomingNumber);
+  //   incomingNumber = "";
+  //   flagSIM = false;
+  // }
   // if(Serial.available()) Serial1.write(Serial.read());
   // if(Serial1.available()) Serial.write(Serial1.read());
 }

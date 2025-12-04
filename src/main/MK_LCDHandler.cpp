@@ -12,25 +12,36 @@ void displayMessage(const Message &msg)
     {
     case MSG_DISPLAY_UPDATE:
     {
-        // Format: "Line1|Line2"
+        // Format: "Line1|Line2" - adjust for 16x2 LCD
         int delimPos = msg.data.indexOf('|');
         if (delimPos != -1)
         {
             String newLine1 = msg.data.substring(0, delimPos);
             String newLine2 = msg.data.substring(delimPos + 1);
 
+            // Truncate to 16 characters per line for 16x2 LCD and pad with spaces
+            if (newLine1.length() > 16)
+                newLine1 = newLine1.substring(0, 16);
+            else
+                while (newLine1.length() < 16)
+                    newLine1 += " ";
+
+            if (newLine2.length() > 16)
+                newLine2 = newLine2.substring(0, 16);
+            else
+                while (newLine2.length() < 16)
+                    newLine2 += " ";
+
             if (newLine1 != line1 || newLine2 != line2)
             {
                 lcd.clear();
                 lcd.setCursor(0, 0);
                 lcd.print(newLine1);
-                if (newLine2.length() > 0)
-                {
-                    lcd.setCursor(0, 1);
-                    lcd.print(newLine2);
-                }
+                lcd.setCursor(0, 1);
+                lcd.print(newLine2);
                 line1 = newLine1;
                 line2 = newLine2;
+                Serial.println("[LCD] Display: '" + newLine1 + "' / '" + newLine2 + "'");
             }
         }
         break;
@@ -53,6 +64,8 @@ void displayMessage(const Message &msg)
         lcd.clear();
         lcd.setCursor(0, 0);
         lcd.print("PASSWORD OK");
+        lcd.setCursor(0, 1);
+        lcd.print("Waiting...");
         delay(1500);
         break;
     }
@@ -72,9 +85,9 @@ void displayMessage(const Message &msg)
     {
         lcd.clear();
         lcd.setCursor(0, 0);
-        lcd.print("SYSTEM LOCKED");
+        lcd.print("SYS LOCKED");
         lcd.setCursor(0, 1);
-        lcd.print("Wait: " + msg.data + "s");
+        lcd.print("Wait:" + msg.data + "s");
         break;
     }
 
@@ -84,7 +97,11 @@ void displayMessage(const Message &msg)
         lcd.setCursor(0, 0);
         lcd.print("AUTH OK");
         lcd.setCursor(0, 1);
-        lcd.print("From: " + msg.data);
+        // Truncate number to fit 16x2 LCD
+        String displayNum = msg.data;
+        if (displayNum.length() > 10)
+            displayNum = displayNum.substring(0, 10);
+        lcd.print(displayNum);
         delay(2000);
         break;
     }

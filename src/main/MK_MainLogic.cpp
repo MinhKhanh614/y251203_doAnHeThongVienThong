@@ -18,7 +18,8 @@ struct SystemContext
     int attemptCount;
     unsigned long lockTimeout;
     unsigned long authTimeout;
-    String allowedNumber; // số điện thoại được phép xác thực
+    String deviceNumber;  // số của thiết bị (số mà người khác sẽ gọi đến)
+    String allowedNumber; // comma-separated allowed phone numbers (callers)
     const int MAX_ATTEMPTS = 3;
     const int LOCK_TIME = 30000;    // 30 giây
     const int AUTH_TIMEOUT = 30000; // 30 giây
@@ -32,9 +33,57 @@ SystemContext sysCtx = {
     0,
     0,
     "",
+    "",
     3,
     30000,
     30000};
+
+// --- Allowed numbers list helpers (stored as comma-separated string in sysCtx.allowedNumber) ---
+String normalizePhoneNumber(const String &in);
+bool isAllowedNumber(const String &num); // forward declaration
+
+void addAllowedNumber(const String &num)
+{
+    String norm = normalizePhoneNumber(num);
+    if (norm.length() == 0)
+        return;
+
+    // avoid duplicates
+    if (isAllowedNumber(norm))
+        return;
+
+    if (sysCtx.allowedNumber.length() == 0)
+        sysCtx.allowedNumber = norm;
+    else
+        sysCtx.allowedNumber += "," + norm;
+}
+
+bool isAllowedNumber(const String &num)
+{
+    String norm = normalizePhoneNumber(num);
+    if (norm.length() == 0 || sysCtx.allowedNumber.length() == 0)
+        return false;
+
+    int start = 0;
+    while (start < sysCtx.allowedNumber.length())
+    {
+        int comma = sysCtx.allowedNumber.indexOf(',', start);
+        String token;
+        if (comma == -1)
+        {
+            token = sysCtx.allowedNumber.substring(start);
+            start = sysCtx.allowedNumber.length();
+        }
+        else
+        {
+            token = sysCtx.allowedNumber.substring(start, comma);
+            start = comma + 1;
+        }
+        if (token == norm)
+            return true;
+    }
+    return false;
+}
 
 // Helper: normalize phone numbers for comparison
 String normalizePhoneNumber(const String &in)
@@ -73,17 +122,36 @@ void handlePasswordInput(char key)
             Message displayMsg(MSG_PASSWORD_CORRECT);
             sendMessage(displayQueue, displayMsg);
 
-            // set allowed phone number for auth (the configured number)
-            // Use the new registered number 0983305910
-            sysCtx.allowedNumber = normalizePhoneNumber("0983305910"); // <-- đăng ký số để đối chiếu
+            // Set device number (the number people should call) and add allowed caller(s)
+            sysCtx.deviceNumber = normalizePhoneNumber("0812373101");
+            addAllowedNumber("0983305910"); // <-- đăng ký số caller để đối chiếu
 
             sysCtx.currentState = STATE2;
             sysCtx.authTimeout = millis() + sysCtx.AUTH_TIMEOUT;
             sysCtx.passwordInput = "";
             sysCtx.attemptCount = 0;
-            // Hiển thị màn hình chờ xác thực qua điện thoại kèm số
-            Message phoneAuthMsg(MSG_DISPLAY_UPDATE, String("PHONE AUTH|CALL: ") + sysCtx.allowedNumber);
+            // Hiển thị màn hình chờ xác thực qua điện thoại: hiển thị số thiết bị để người gọi quay số
+            String displayNum = sysCtx.deviceNumber;
+            if (displayNum.length() == 0)
+            {
+                // fallback: nếu chưa có deviceNumber thì hiển thị first allowed caller (không lý tưởng)
+                displayNum = sysCtx.allowedNumber;
+                int commaPos = displayNum.indexOf(',');
+                if (commaPos != -1)
+                    displayNum = displayNum.substring(0, commaPos);
+            }
+            // Truncate displayNum for 16x2 LCD (max 10 chars for "PHONE AUTH")
+            if (displayNum.length() > 10)
+                displayNum = displayNum.substring(0, 10);
+            String line1Str = "PHONE AUTH";
+            String line2Str = "CALL: " + displayNum;
+            String msgData = line1Str + "|" + line2Str;
+            Serial.println("[MAIN] Display message: '" + msgData + "'");
+            Serial.println("[MAIN] Line1: '" + line1Str + "' (len=" + String(line1Str.length()) + ")");
+            Serial.println("[MAIN] Line2: '" + line2Str + "' (len=" + String(line2Str.length()) + ")");
+            Message phoneAuthMsg(MSG_DISPLAY_UPDATE, msgData);
             sendMessage(displayQueue, phoneAuthMsg);
+            Serial.println("[MAIN] Password OK. Device: " + String(sysCtx.deviceNumber) + ", Allowed: " + sysCtx.allowedNumber);
         }
         else
         {
@@ -195,9 +263,10 @@ void taskMainLogic(void *pvParameters)
 
     while (1)
     {
-        // Nhận message từ keypad (không block)
-        if (receiveMessage(mainQueue, msg, 10))
+        // Nhận message từ keypad/phone (không block - timeout 100ms để đủ thời gian nhận)
+        if (receiveMessage(mainQueue, msg, 100))
         {
+            Serial.println("[MAIN] Received message type: " + String(msg.type) + ", currentState: " + String(sysCtx.currentState));
             switch (msg.type)
             {
             case MSG_KEYPAD_PRESSED:
@@ -223,10 +292,15 @@ void taskMainLogic(void *pvParameters)
                 if (sysCtx.currentState == STATE2)
                 {
                     // Kiểm tra payload
-                    // normalize incoming number before comparison
                     String incomingNorm = normalizePhoneNumber(msg.data);
-                    if (incomingNorm.length() > 0 && (sysCtx.allowedNumber.length() == 0 || incomingNorm == sysCtx.allowedNumber))
+                    Serial.println("[MAIN] Incoming call from: " + msg.data);
+                    Serial.println("[MAIN] Normalized: " + incomingNorm);
+                    Serial.println("[MAIN] Allowed list: " + sysCtx.allowedNumber);
+
+                    // Use isAllowedNumber to check against comma-separated list
+                    if (incomingNorm.length() > 0 && isAllowedNumber(incomingNorm))
                     {
+                        Serial.println("[MAIN] AUTH OK - Caller matched!");
                         Message displayMsg(MSG_PHONE_AUTH_OK, incomingNorm);
                         sendMessage(displayQueue, displayMsg);
 
@@ -237,6 +311,7 @@ void taskMainLogic(void *pvParameters)
                     else
                     {
                         // Caller không khớp; có thể log hoặc thông báo
+                        Serial.println("[MAIN] AUTH FAILED - Caller not in allowed list");
                         Message badCaller(MSG_PASSWORD_WRONG, "Invalid caller");
                         sendMessage(displayQueue, badCaller);
                     }

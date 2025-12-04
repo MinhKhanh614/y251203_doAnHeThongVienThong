@@ -7,7 +7,7 @@ bool flagSIM = false;
 
 void Module_SIM_Init()
 {
-    // UART1 cho SIM7600 (TX=27, RX=13)
+  // UART1 cho SIM7600 (TX=27, RX=13)
   SIM_SERIAL.begin(SIM_BAUDRATE, SIM_SERIAL_CONFIG, SIM_SERIAL_RX_PIN, SIM_SERIAL_TX_PIN);
   SIM_SERIAL.onReceive(simCallback);
   delay(10000);
@@ -15,22 +15,32 @@ void Module_SIM_Init()
   SIM_SERIAL.println("AT");
 }
 
-String readIncomingNumber() {
+String readIncomingNumber()
+{
   String line = SIM_SERIAL.readStringUntil('\n'); // đọc một dòng từ SIM
-  if (line.indexOf("+CLCC:") != -1) {
+  Serial.println("[SIM] Raw line: " + line);
+  if (line.indexOf("+CLCC:") != -1)
+  {
     int firstQuote = line.indexOf('"');
     int secondQuote = line.indexOf('"', firstQuote + 1);
-    if (firstQuote != -1 && secondQuote != -1) {
+    if (firstQuote != -1 && secondQuote != -1)
+    {
       String number = line.substring(firstQuote + 1, secondQuote);
+      Serial.println("[SIM] Extracted number: " + number);
       return number;
     }
   }
   return "";
 }
-void IRAM_ATTR simCallback() {
+void simCallback()
+{
   while (SIM_SERIAL.available())
   {
     incomingNumber = readIncomingNumber();
-    flagSIM = true;
+    if (incomingNumber.length() > 0)
+    {
+      Serial.println("[SIM] Incoming number ready: " + incomingNumber);
+      flagSIM = true;
+    }
   }
 }

@@ -12,8 +12,10 @@ void taskSIMHandler(void *pvParameters)
         if (flagSIM && incomingNumber.length() > 0)
         {
             // Gửi message tới main logic
+            Serial.println("[SIMHANDLER] Sending MSG_PHONE_INCOMING: " + incomingNumber);
             Message msg(MSG_PHONE_INCOMING, incomingNumber);
             sendMessage(mainQueue, msg);
+            Serial.println("[SIMHANDLER] Message sent: OK");
 
             // Reset flag
             flagSIM = false;
