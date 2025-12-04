@@ -35,10 +35,18 @@ void displayMessage(const Message &msg)
             if (newLine1 != line1 || newLine2 != line2)
             {
                 lcd.clear();
-                lcd.setCursor(0, 0);
-                lcd.print(newLine1);
-                lcd.setCursor(0, 1);
-                lcd.print(newLine2);
+                // Write line1 character-by-character to ensure correct placement
+                for (int c = 0; c < 16; ++c)
+                {
+                    lcd.setCursor(c, 0);
+                    lcd.write((uint8_t)newLine1.charAt(c));
+                }
+                // Write line2 character-by-character
+                for (int c = 0; c < 16; ++c)
+                {
+                    lcd.setCursor(c, 1);
+                    lcd.write((uint8_t)newLine2.charAt(c));
+                }
                 line1 = newLine1;
                 line2 = newLine2;
                 Serial.println("[LCD] Display: '" + newLine1 + "' / '" + newLine2 + "'");
@@ -52,7 +60,7 @@ void displayMessage(const Message &msg)
         // Hiển thị password (dưới dạng dấu *)
         passwordDisplay = msg.data;
         lcd.setCursor(0, 1);
-        lcd.print("               "); // Clear line 2
+        lcd.print("                "); // Clear full line 2 (16 spaces)
         lcd.setCursor(0, 1);
         for (int i = 0; i < passwordDisplay.length(); i++)
             lcd.print("*");
@@ -121,7 +129,7 @@ void displayMessage(const Message &msg)
         lcd.setCursor(0, 0);
         lcd.print("ACCESS GRANTED");
         lcd.setCursor(0, 1);
-        lcd.print("System Active");
+        lcd.print("SYSTEM ACTIVE");
         delay(500);
         break;
     }
