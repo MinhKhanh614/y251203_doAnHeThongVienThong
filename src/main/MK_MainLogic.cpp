@@ -18,6 +18,7 @@ struct SystemContext
     int attemptCount;
     unsigned long lockTimeout;
     unsigned long authTimeout;
+    String allowedNumber; // số điện thoại được phép xác thực
     const int MAX_ATTEMPTS = 3;
     const int LOCK_TIME = 30000;    // 30 giây
     const int AUTH_TIMEOUT = 30000; // 30 giây
@@ -30,6 +31,7 @@ SystemContext sysCtx = {
     0,
     0,
     0,
+    "",
     3,
     30000,
     30000};
@@ -49,10 +51,16 @@ void handlePasswordInput(char key)
             Message displayMsg(MSG_PASSWORD_CORRECT);
             sendMessage(displayQueue, displayMsg);
 
+            // set allowed phone number for auth (the configured number)
+            sysCtx.allowedNumber = "0812373101"; // <-- khai báo số điện thoại mong muốn
+
             sysCtx.currentState = STATE2;
             sysCtx.authTimeout = millis() + sysCtx.AUTH_TIMEOUT;
             sysCtx.passwordInput = "";
             sysCtx.attemptCount = 0;
+            // Hiển thị màn hình chờ xác thực qua điện thoại kèm số
+            Message phoneAuthMsg(MSG_DISPLAY_UPDATE, String("PHONE AUTH|CALL: ") + sysCtx.allowedNumber);
+            sendMessage(displayQueue, phoneAuthMsg);
         }
         else
         {
@@ -98,6 +106,7 @@ void handleState1()
 void handleState2()
 {
     // Xác thực phone
+
     // Kiểm tra timeout
     if (millis() > sysCtx.authTimeout)
     {
@@ -171,19 +180,41 @@ void taskMainLogic(void *pvParameters)
             case MSG_KEYPAD_PRESSED:
             {
                 char key = msg.data[0];
-                handlePasswordInput(key);
+                // Chỉ xử lý nhập mật khẩu khi đang ở STATE1
+                if (sysCtx.currentState == STATE1)
+                {
+                    handlePasswordInput(key);
+                }
+                else
+                {
+                    // Nếu muốn, có thể gửi thông báo rằng hệ thống đang chờ cuộc gọi
+                    // Message notify(MSG_DISPLAY_UPDATE, "WAIT CALL|");
+                    // sendMessage(displayQueue, notify);
+                }
                 break;
             }
 
             case MSG_PHONE_INCOMING:
             {
-                // Xử lý incoming call
+                // Xử lý incoming call - chỉ khi đang chờ xác thực
                 if (sysCtx.currentState == STATE2)
                 {
-                    Message displayMsg(MSG_PHONE_AUTH_OK, msg.data);
-                    sendMessage(displayQueue, displayMsg);
+                    // Kiểm tra payload
+                    if (msg.data.length() > 0 && (sysCtx.allowedNumber.length() == 0 || msg.data == sysCtx.allowedNumber))
+                    {
+                        Message displayMsg(MSG_PHONE_AUTH_OK, msg.data);
+                        sendMessage(displayQueue, displayMsg);
 
-                    sysCtx.currentState = STATE3;
+                        sysCtx.currentState = STATE3;
+                        // reset auth timeout
+                        sysCtx.authTimeout = 0;
+                    }
+                    else
+                    {
+                        // Caller không khớp; có thể log hoặc thông báo
+                        Message badCaller(MSG_PASSWORD_WRONG, "Invalid caller");
+                        sendMessage(displayQueue, badCaller);
+                    }
                 }
                 break;
             }
