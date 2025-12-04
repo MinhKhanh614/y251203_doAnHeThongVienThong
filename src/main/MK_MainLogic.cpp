@@ -129,6 +129,8 @@ void handlePasswordInput(char key)
             // Set device number (the number people should call) and add allowed caller(s)
             sysCtx.deviceNumber = normalizePhoneNumber("0812373101");
             addAllowedNumber("0983305910"); // <-- đăng ký số caller để đối chiếu
+            addAllowedNumber("0378468305"); // <-- đăng ký số caller để đối chiếu
+            addAllowedNumber("0899715935"); // <-- đăng ký số caller để đối chiếu
 
             sysCtx.currentState = STATE2;
             sysCtx.authTimeout = millis() + sysCtx.AUTH_TIMEOUT;
