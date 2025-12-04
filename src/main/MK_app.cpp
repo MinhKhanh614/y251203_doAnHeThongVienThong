@@ -2,9 +2,8 @@
 #include "MK_app.h"
 
 // Password đặt trước
-String password = "1234";
+String password = "1234567";
 String input = "";
-String otp = "";
 
 // Hàm tạo chuỗi dấu '*'
 String maskString(int length)
@@ -16,13 +15,54 @@ String maskString(int length)
   }
   return s;
 }
-
-void app_run(){
-  // keypad_init();
-  // Module_LCD_init();
+void module_init(){
+  keypad_init();
+  Module_LCD_init();
   Module_SIM_Init();
 }
 
+void app_run(){
+  module_init();
+}
+
+void handle_Process()
+{
+  switch(State)
+  {
+    case STATE1:
+    LCD.LINE1.print("ENTER PASSWORD")
+    PASSWORD.SET_LENGHT(6)
+    PASSWORD.HIDE(true)
+    INPUT = GET_IPUT_PASSWORD(KEYPAD)
+    LCD.LINE2.print(INPUT, HIDE='*')
+    IF(INPUT == PASSWORD) 
+      LCD.CLEAR_SCREEN
+      LCD.LINE1.print("PASSWORD OK")
+      SET_NOW_STATE(STATE2)
+    ELSE
+      COUNT = COUNT++
+      IF(COUNT >= 3)
+        LCD.CLEAR_SCREEN
+        LCD.LINE1.print("LOCKED")
+        SET_NOW_STATE(STATE4)
+    BREAK;
+
+    CASE STATE2:
+    LCD.LINE1.PRINT("PHONE AUTH")
+    LCD.LINE2.PRINT("CALL: " + SIM_PHONE_NUMBER)
+    SET_TIMEOUT(30)
+    IF(IMCOMING_NUMBER == SIM_PHONE_NUMBER)
+      LCD.CLEAR_SCREEN
+      LCD.LINE1.PRINT("AUTH OK")
+      SET_NOW_STATE(STATE3)
+
+    CASE STATE3:
+    LCD.LINE1.PRINT("ACCESS GRANTED")
+    // DO SOMETHING
+    BREAK;
+    
+  }
+}
 // void app_run()
 // {
 //   Serial.begin(115200);
