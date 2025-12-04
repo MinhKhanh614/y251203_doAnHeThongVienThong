@@ -94,7 +94,7 @@ void handle_Process()
         }
         else
         {
-          COUNT++;
+          COUNT = COUNT + 1;
           if (COUNT >= 3)
           {
             lcd.clear();
@@ -183,9 +183,8 @@ void handle_Process()
 
   case STATE4: // Hệ thống bị khóa
   {
-    unsigned long remainingTime = (lockTimeout - millis()) / 1000;
-    if (remainingTime < 0)
-      remainingTime = 0;
+    long timeDiff = (long)(lockTimeout - millis());
+    unsigned long remainingTime = (timeDiff > 0) ? (timeDiff / 1000) : 0;
 
     lcd.clear();
     lcd.setCursor(0, 0);
