@@ -18,11 +18,13 @@ struct SystemContext
     int attemptCount;
     unsigned long lockTimeout;
     unsigned long authTimeout;
-    String deviceNumber;  // số của thiết bị (số mà người khác sẽ gọi đến)
-    String allowedNumber; // comma-separated allowed phone numbers (callers)
+    unsigned long wrongPasswordDisplayTime; // để delay trước khi quay về ENTER PASSWORD
+    String deviceNumber;                    // số của thiết bị (số mà người khác sẽ gọi đến)
+    String allowedNumber;                   // comma-separated allowed phone numbers (callers)
     const int MAX_ATTEMPTS = 3;
-    const int LOCK_TIME = 30000;    // 30 giây
-    const int AUTH_TIMEOUT = 30000; // 30 giây
+    const int LOCK_TIME = 30000;                  // 30 giây
+    const int AUTH_TIMEOUT = 30000;               // 30 giây
+    const int WRONG_PASSWORD_DISPLAY_TIME = 1500; // 1.5 giây
 };
 
 SystemContext sysCtx = {
@@ -32,11 +34,13 @@ SystemContext sysCtx = {
     0,
     0,
     0,
+    0,
     "",
     "",
     3,
     30000,
-    30000};
+    30000,
+    1500};
 
 // --- Allowed numbers list helpers (stored as comma-separated string in sysCtx.allowedNumber) ---
 String normalizePhoneNumber(const String &in);
@@ -173,6 +177,7 @@ void handlePasswordInput(char key)
                 int triesLeft = sysCtx.MAX_ATTEMPTS - sysCtx.attemptCount;
                 Message displayMsg(MSG_PASSWORD_WRONG, String(triesLeft));
                 sendMessage(displayQueue, displayMsg);
+                sysCtx.wrongPasswordDisplayTime = millis(); // set time for delay
 
                 sysCtx.passwordInput = "";
             }
@@ -191,22 +196,39 @@ void handlePasswordInput(char key)
 void handleState1()
 {
     // Nhập password - xử lý từ keypad input
-    // Không có hành động khác cần thiết, chỉ chờ keypad
+    // Nếu vừa hiển thị PASSWORD_WRONG, đợi trước khi quay về ENTER PASSWORD
+    if (sysCtx.wrongPasswordDisplayTime > 0 &&
+        millis() - sysCtx.wrongPasswordDisplayTime > sysCtx.WRONG_PASSWORD_DISPLAY_TIME)
+    {
+        // Đã chờ đủ, quay về ENTER PASSWORD
+        Message pwMsg(MSG_DISPLAY_UPDATE, "ENTER PASSWORD|");
+        sendMessage(displayQueue, pwMsg);
+        sysCtx.wrongPasswordDisplayTime = 0; // reset flag
+    }
 }
 
 void handleState2()
 {
     // Xác thực phone
+    static unsigned long authTimeoutDisplayTime = 0;
+    static bool authTimeoutDisplayed = false;
 
     // Kiểm tra timeout
-    if (millis() > sysCtx.authTimeout)
+    if (millis() > sysCtx.authTimeout && !authTimeoutDisplayed)
     {
         Message displayMsg(MSG_AUTH_TIMEOUT);
         sendMessage(displayQueue, displayMsg);
+        authTimeoutDisplayTime = millis();
+        authTimeoutDisplayed = true;
+    }
 
+    // Sau delay, quay về STATE1 và hiển thị ENTER PASSWORD
+    if (authTimeoutDisplayed && (millis() - authTimeoutDisplayTime > 2000))
+    {
         sysCtx.currentState = STATE1;
         sysCtx.passwordInput = "";
         sysCtx.attemptCount = 0;
+        authTimeoutDisplayed = false;
 
         // Hiển thị lại prompt nhập password
         Message pwMsg(MSG_DISPLAY_UPDATE, "ENTER PASSWORD|");
@@ -218,28 +240,44 @@ void handleState3()
 {
     // Truy cập được cấp - có thể thêm chức năng ở đây
     // Hiển thị trạng thái hệ thống
-    Message displayMsg(MSG_ACCESS_GRANTED);
-    sendMessage(displayQueue, displayMsg);
+    static unsigned long accessGrantedTime = 0;
+    static bool accessGrantedDisplayed = false;
 
-    // TODO: Thực hiện các chức năng chính ở đây
+    if (!accessGrantedDisplayed)
+    {
+        Message displayMsg(MSG_ACCESS_GRANTED);
+        sendMessage(displayQueue, displayMsg);
+        accessGrantedTime = millis();
+        accessGrantedDisplayed = true;
+    }
 
-    // Quay lại state 1 sau một thời gian (ví dụ: 30 giây)
-    delay(30000);
-    sysCtx.currentState = STATE1;
-    sysCtx.passwordInput = "";
-    sysCtx.attemptCount = 0;
+    // Quay lại state 1 sau một thời gian (ví dụ: 5 giây)
+    if (millis() - accessGrantedTime > 5000)
+    {
+        sysCtx.currentState = STATE1;
+        sysCtx.passwordInput = "";
+        sysCtx.attemptCount = 0;
+        accessGrantedDisplayed = false;
+
+        // Hiển thị lại prompt nhập password
+        Message pwMsg(MSG_DISPLAY_UPDATE, "ENTER PASSWORD|");
+        sendMessage(displayQueue, pwMsg);
+    }
 }
 
 void handleState4()
 {
     // Hệ thống bị khóa
-    unsigned long remainingTime = sysCtx.lockTimeout - millis();
+    unsigned long now = millis();
 
-    if (remainingTime > 0)
+    // Kiểm tra xem timeout đã đạt chưa (so sánh đơn giản để tránh tràn)
+    if (now < sysCtx.lockTimeout)
     {
         // Cập nhật thời gian còn lại
+        unsigned long remainingTime = sysCtx.lockTimeout - now;
         unsigned long secondsLeft = remainingTime / 1000;
-        Message displayMsg(MSG_SYSTEM_LOCKED, String(secondsLeft));
+        // Đảm bảo không hiển thị số âm (nếu vượt quá sẽ hiển thị 0)
+        Message displayMsg(MSG_SYSTEM_LOCKED, String(secondsLeft > 0 ? secondsLeft : 0));
         sendMessage(displayQueue, displayMsg);
     }
     else
