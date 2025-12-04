@@ -36,6 +36,28 @@ SystemContext sysCtx = {
     30000,
     30000};
 
+// Helper: normalize phone numbers for comparison
+String normalizePhoneNumber(const String &in)
+{
+    String s = "";
+    for (size_t i = 0; i < in.length(); ++i)
+    {
+        char c = in.charAt(i);
+        if ((c >= '0' && c <= '9') || c == '+')
+            s += c;
+    }
+    // convert +84xxxx -> 0xxxx
+    if (s.startsWith("+84"))
+    {
+        return String('0') + s.substring(3);
+    }
+    if (s.startsWith("84") && s.length() > 2)
+    {
+        return String('0') + s.substring(2);
+    }
+    return s;
+}
+
 void handlePasswordInput(char key)
 {
     if (key == '*') // Xóa ký tự cuối
@@ -52,7 +74,8 @@ void handlePasswordInput(char key)
             sendMessage(displayQueue, displayMsg);
 
             // set allowed phone number for auth (the configured number)
-            sysCtx.allowedNumber = "0812373101"; // <-- khai báo số điện thoại mong muốn
+            // Use the new registered number 0983305910
+            sysCtx.allowedNumber = normalizePhoneNumber("0983305910"); // <-- đăng ký số để đối chiếu
 
             sysCtx.currentState = STATE2;
             sysCtx.authTimeout = millis() + sysCtx.AUTH_TIMEOUT;
@@ -200,9 +223,11 @@ void taskMainLogic(void *pvParameters)
                 if (sysCtx.currentState == STATE2)
                 {
                     // Kiểm tra payload
-                    if (msg.data.length() > 0 && (sysCtx.allowedNumber.length() == 0 || msg.data == sysCtx.allowedNumber))
+                    // normalize incoming number before comparison
+                    String incomingNorm = normalizePhoneNumber(msg.data);
+                    if (incomingNorm.length() > 0 && (sysCtx.allowedNumber.length() == 0 || incomingNorm == sysCtx.allowedNumber))
                     {
-                        Message displayMsg(MSG_PHONE_AUTH_OK, msg.data);
+                        Message displayMsg(MSG_PHONE_AUTH_OK, incomingNorm);
                         sendMessage(displayQueue, displayMsg);
 
                         sysCtx.currentState = STATE3;
