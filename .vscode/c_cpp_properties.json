@@ -1,0 +1,31 @@
+{
+    "configurations": [
+        {
+            "name": "Arduino",
+            "includePath": [
+                "${workspaceFolder}/**",
+                "${workspaceFolder}/src/libraries/**",
+                "${workspaceFolder}/src/main/**"
+            ],
+            "defines": [
+                "ARDUINO=10819",
+                "ARDUINO_ESP32_DEV",
+                "ARDUINO_ARCH_ESP32",
+                "ESP32",
+                "F_CPU=240000000L",
+                "__cplusplus=201703L"
+            ],
+            "compilerPath": "arm-none-eabi-gcc",
+            "cStandard": "c11",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "gcc-arm",
+            "browse": {
+                "path": [
+                    "${workspaceFolder}/**"
+                ],
+                "limitSymbolsToIncludedHeaders": false
+            }
+        }
+    ],
+    "version": 4
+}

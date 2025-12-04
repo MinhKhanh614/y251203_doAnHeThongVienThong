@@ -1,9 +1,23 @@
-#include "HardwareSerial.h"
 #include "MK_app.h"
 
 // Password đặt trước
 String password = "1234567";
 String input = "";
+
+// Global state variables
+enum SystemState
+{
+  STATE1 = 0,
+  STATE2 = 1,
+  STATE3 = 2,
+  STATE4 = 3
+};
+volatile SystemState State = STATE1;
+volatile int COUNT = 0;
+volatile unsigned long lockTimeout = 0;
+volatile unsigned long stateTimeout = 0;
+const int LOCK_TIME = 30;    // 30 giây khóa
+const int AUTH_TIMEOUT = 30; // 30 giây xác thực
 
 // Hàm tạo chuỗi dấu '*'
 String maskString(int length)
@@ -15,151 +29,184 @@ String maskString(int length)
   }
   return s;
 }
-void module_init(){
+void module_init()
+{
   keypad_init();
   Module_LCD_init();
   Module_SIM_Init();
 }
 
-void app_run(){
+// Task chạy logic chính của hệ thống
+void taskSystemLogic(void *pvParameters)
+{
+  while (1)
+  {
+    handle_Process();
+    vTaskDelay(pdMS_TO_TICKS(100)); // Cập nhật trạng thái mỗi 100ms
+  }
+}
+
+void app_run()
+{
   module_init();
+
+  // Khởi động task chính
+  xTaskCreate(
+      taskSystemLogic,     // Function to implement the task
+      "System Logic Task", // Name of the task
+      4096,                // Stack size in words
+      NULL,                // Task input parameter
+      1,                   // Priority of the task
+      NULL);               // Task handle
 }
 
 void handle_Process()
 {
-  switch(State)
+  switch (State)
   {
-    case STATE1:
-    LCD.LINE1.print("ENTER PASSWORD")
-    PASSWORD.SET_LENGHT(6)
-    PASSWORD.HIDE(true)
-    INPUT = GET_IPUT_PASSWORD(KEYPAD)
-    LCD.LINE2.print(INPUT, HIDE='*')
-    IF(INPUT == PASSWORD) 
-      LCD.CLEAR_SCREEN
-      LCD.LINE1.print("PASSWORD OK")
-      SET_NOW_STATE(STATE2)
-    ELSE
-      COUNT = COUNT++
-      IF(COUNT >= 3)
-        LCD.CLEAR_SCREEN
-        LCD.LINE1.print("LOCKED")
-        SET_NOW_STATE(STATE4)
-    BREAK;
+  case STATE1: // Nhập mật khẩu
+  {
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("ENTER PASSWORD");
 
-    CASE STATE2:
-    LCD.LINE1.PRINT("PHONE AUTH")
-    LCD.LINE2.PRINT("CALL: " + SIM_PHONE_NUMBER)
-    SET_TIMEOUT(30)
-    IF(IMCOMING_NUMBER == SIM_PHONE_NUMBER)
-      LCD.CLEAR_SCREEN
-      LCD.LINE1.PRINT("AUTH OK")
-      SET_NOW_STATE(STATE3)
-    ELSEIF(TIMEOUT)
-      LCD.CLEAR_SCREEN
-      SET_STATE(STATE1)
-    BREAK;
+    // Nhận input từ keypad
+    char currentKey = key; // Từ MK_Keypad.cpp
+    if (currentKey != '0' && currentKey != NO_KEY)
+    {
+      if (currentKey == '*') // Xóa ký tự cuối
+      {
+        if (input.length() > 0)
+          input.remove(input.length() - 1);
+      }
+      else if (currentKey == '#') // Xác nhận password
+      {
+        if (input == password)
+        {
+          lcd.clear();
+          lcd.setCursor(0, 0);
+          lcd.print("PASSWORD OK");
+          State = STATE2;
+          stateTimeout = millis() + (AUTH_TIMEOUT * 1000);
+          input = "";
+          COUNT = 0;
+          delay(1500);
+        }
+        else
+        {
+          COUNT++;
+          if (COUNT >= 3)
+          {
+            lcd.clear();
+            lcd.setCursor(0, 0);
+            lcd.print("SYSTEM LOCKED");
+            State = STATE4;
+            lockTimeout = millis() + (LOCK_TIME * 1000);
+            delay(1500);
+          }
+          else
+          {
+            lcd.clear();
+            lcd.setCursor(0, 0);
+            lcd.print("WRONG PASSWORD");
+            lcd.setCursor(0, 1);
+            lcd.print("Try: " + String(3 - COUNT));
+            input = "";
+            delay(1500);
+          }
+        }
+      }
+      else // Thêm ký tự vào password
+      {
+        input += currentKey;
+      }
+    }
 
-    CASE STATE3:
-    LCD.LINE1.PRINT("ACCESS GRANTED")
-    // DO SOMETHING
-    BREAK;
-    
-    CASE STATE4:
-    LCD.LINE1.PRINT("SYSTEM LOCKED")
-    LCD.LINE2.PRINT("TIMEOUT: " + LOCK_TIME + "S")
-    SET_TIMEOUT(LOCK_TIME)
-    IF(TIMEOUT)
-      COUNT = 0
-      LCD.CLEAR_SCREEN
-      SET_NOW_STATE(STATE1)
-    BREAK;
+    // Hiển thị mật khẩu ẩn (dấu *)
+    lcd.setCursor(0, 1);
+    lcd.print("               "); // Clear line 2
+    lcd.setCursor(0, 1);
+    for (int i = 0; i < input.length(); i++)
+      lcd.print("*");
+    break;
+  }
+
+  case STATE2: // Xác thực qua số điện thoại
+  {
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("PHONE AUTH");
+    lcd.setCursor(0, 1);
+    lcd.print("Call to SIM");
+
+    // Kiểm tra timeout
+    if (millis() > stateTimeout)
+    {
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print("AUTH TIMEOUT");
+      State = STATE1;
+      COUNT = 0;
+      input = "";
+      delay(1500);
+      break;
+    }
+
+    // Kiểm tra incoming call
+    if (flagSIM && incomingNumber.length() > 0)
+    {
+      lcd.clear();
+      lcd.setCursor(0, 0);
+      lcd.print("AUTH OK");
+      lcd.setCursor(0, 1);
+      lcd.print("From: " + incomingNumber);
+      State = STATE3;
+      input = "";
+      flagSIM = false;
+      delay(2000);
+    }
+    break;
+  }
+
+  case STATE3: // Truy cập được cấp
+  {
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("ACCESS GRANTED");
+    lcd.setCursor(0, 1);
+    lcd.print("System Active");
+
+    // TODO: Thực hiện các chức năng chính ở đây
+    delay(500);
+    break;
+  }
+
+  case STATE4: // Hệ thống bị khóa
+  {
+    unsigned long remainingTime = (lockTimeout - millis()) / 1000;
+    if (remainingTime < 0)
+      remainingTime = 0;
+
+    lcd.clear();
+    lcd.setCursor(0, 0);
+    lcd.print("SYSTEM LOCKED");
+    lcd.setCursor(0, 1);
+    lcd.print("Wait: " + String(remainingTime) + "s");
+
+    // Kiểm tra timeout khóa
+    if (millis() > lockTimeout)
+    {
+      COUNT = 0;
+      State = STATE1;
+      input = "";
+      lcd.clear();
+      delay(500);
+    }
+    break;
+  }
+
+  default:
+    State = STATE1;
+    break;
   }
 }
-// void app_run()
-// {
-//   Serial.begin(115200);
-//   xTaskCreatePinnedToCore(
-//       task_app,   // Function to implement the task
-//       "App Task", // Name of the task
-//       8192,       // Stack size in words
-//       NULL,       // Task input parameter
-//       1,          // Priority of the task
-//       NULL,       // Task handle
-//       1);         // Core where the task should run
-// }
-
-// void task_app(void *pvParameters)
-// {
-//   lcd.clear();
-//   lcd.print("Enter Password:");
-//   String input = "";
-
-//   while (true)
-//   {
-//     char key = customKeypad.getKey();
-
-//     if (key)
-//     {
-//       // Nhấn '#' để xác nhận password
-//       if (key == '#')
-//       {
-//         lcd.clear();
-//         if (input == password)
-//         {
-//           lcd.print("Password OK");
-//           delay(2000);
-
-//           // Sinh OTP ngẫu nhiên 6 số
-//           otp = String(random(100000, 999999));
-//           sendSMS("+84983305910", "Your OTP is " + otp);
-//           Serial.println("Your OTP is " + String(otp));
-//           lcd.clear();
-//           lcd.print("Enter OTP:");
-//           String otpInput = getKeypadInput(false); // OTP hiển thị trực tiếp
-
-//           lcd.clear();
-//           if (otpInput == otp)
-//           {
-//             lcd.print("OK");
-//           }
-//           else
-//           {
-//             lcd.print("INVALID");
-//           }
-//           delay(2000);
-//           lcd.clear();
-//           lcd.print("Enter Password:");
-//         }
-//         else
-//         {
-//           lcd.print("INVALID");
-//           delay(2000);
-//           lcd.clear();
-//           lcd.print("Enter Password:");
-//         }
-//         input = "";
-//       }
-//       // Nhấn '*' để xóa ký tự cuối
-//       else if (key == '*')
-//       {
-//         if (input.length() > 0)
-//         {
-//           input.remove(input.length() - 1);
-//         }
-//         lcd.clear();
-//         lcd.print("Enter Password:");
-//         lcd.setCursor(0, 1);
-//         lcd.print(maskString(input.length())); // hiển thị dấu *
-//       }
-//       // Nhập ký tự bình thường
-//       else
-//       {
-//         input += key;
-//         lcd.setCursor(0, 1);
-//         lcd.print(maskString(input.length())); // hiển thị dấu *
-//       }
-//     }
-//     vTaskDelay(dMS_TO_TICKS(1));
-//   }
-// }
