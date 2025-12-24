@@ -33,13 +33,9 @@ struct Message
 };
 
 // Queue declarations (khởi tạo trong MK_Message.cpp)
-// Được sử dụng để giao tiếp giữa các tasks
 extern QueueHandle_t keypadQueue;
-// 
 extern QueueHandle_t mainQueue;
-//
 extern QueueHandle_t displayQueue;
-
 
 // Helper functions
 void sendMessage(QueueHandle_t queue, const Message &msg);

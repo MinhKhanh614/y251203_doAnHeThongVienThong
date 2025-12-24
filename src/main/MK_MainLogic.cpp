@@ -39,7 +39,7 @@ SystemContext sysCtx = {
     "",
     3,
     30000,
-    30000,
+    60000,
     1500};
 
 // --- Allowed numbers list helpers (stored as comma-separated string in sysCtx.allowedNumber) ---
@@ -131,6 +131,7 @@ void handlePasswordInput(char key)
             addAllowedNumber("0983305910"); // <-- đăng ký số caller để đối chiếu
             addAllowedNumber("0378468305"); // <-- đăng ký số caller để đối chiếu
             addAllowedNumber("0899715935"); // <-- đăng ký số caller để đối chiếu
+            addAllowedNumber("0394724170"); // <-- đăng ký số caller để đối chiếu
 
             sysCtx.currentState = STATE2;
             sysCtx.authTimeout = millis() + sysCtx.AUTH_TIMEOUT;
@@ -347,6 +348,7 @@ void taskMainLogic(void *pvParameters)
                         sysCtx.currentState = STATE3;
                         // reset auth timeout
                         sysCtx.authTimeout = 0;
+                        SIM_SERIAL.print("ATH\r\n");
                     }
                     else
                     {

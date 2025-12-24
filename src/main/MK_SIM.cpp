@@ -4,6 +4,7 @@
 String simBuffer = "";
 String incomingNumber = "";
 bool flagSIM = false;
+bool flagDis = false;
 
 void Module_SIM_Init()
 {
@@ -13,6 +14,7 @@ void Module_SIM_Init()
   delay(10000);
 
   SIM_SERIAL.println("AT");
+ SIM_SERIAL.println("AT+CVHU=0");
 }
 
 String readIncomingNumber()
@@ -27,6 +29,7 @@ String readIncomingNumber()
     {
       String number = line.substring(firstQuote + 1, secondQuote);
       Serial.println("[SIM] Extracted number: " + number);
+      // SIM_SERIAL.print("ATH\r\n");
       return number;
     }
   }
@@ -41,6 +44,9 @@ void simCallback()
     {
       Serial.println("[SIM] Incoming number ready: " + incomingNumber);
       flagSIM = true;
+      flagDis = true; 
     }
   }
+      // SIM_SERIAL.print("ATH\r\n");
+  // if(flagDis) SIM_SERIAL.print("ATH\r\n");
 }

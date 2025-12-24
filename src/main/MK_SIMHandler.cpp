@@ -19,7 +19,10 @@ void taskSIMHandler(void *pvParameters)
 
             // Reset flag
             flagSIM = false;
+            flagDis = false;
+
             incomingNumber = "";
+            SIM_SERIAL.println("ATH");
         }
 
         vTaskDelay(pdMS_TO_TICKS(100)); // Kiểm tra mỗi 100ms

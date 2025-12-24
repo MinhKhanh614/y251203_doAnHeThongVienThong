@@ -16,3 +16,5 @@ void IRAM_ATTR simCallback();
 
 extern String incomingNumber;
 extern bool flagSIM;
+extern bool flagDis;
+// extern HardwareSerial Serial1(1);
