@@ -13,6 +13,7 @@ enum MessageType
     MSG_SYSTEM_LOCKED,    // Hệ thống bị khóa
     MSG_PHONE_INCOMING,   // Cuộc gọi đến
     MSG_PHONE_AUTH_OK,    // Xác thực qua điện thoại thành công
+    MSG_PHONE_AUTH_FAILD,
     MSG_AUTH_TIMEOUT,     // Timeout xác thực
     MSG_STATE_CHANGED,    // Trạng thái thay đổi
     MSG_DISPLAY_UPDATE,   // Cập nhật LCD

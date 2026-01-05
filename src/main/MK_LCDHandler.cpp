@@ -149,6 +149,27 @@ void displayMessage(const Message &msg)
         break;
     }
 
+        case MSG_PHONE_AUTH_FAILD:
+    {
+        lcd.clear();
+        lcd.setCursor(0, 0);
+        lcd.print("AUTH FAILED");
+        lcd.setCursor(0, 1);
+        // Truncate number to fit 16x2 LCD
+        String displayNum = msg.data;
+        if (displayNum.length() > 10)
+            displayNum = displayNum.substring(0, 10);
+        String t2 = displayNum;
+        while (t2.length() < 16)
+            t2 += ' ';
+        lcd.print(t2);
+        line1 = String("AUTH FAILED") + String(' ', 9);
+        line2 = t2;
+        delay(2000);
+        break;
+    }
+
+
     case MSG_AUTH_TIMEOUT:
     {
         lcd.clear();

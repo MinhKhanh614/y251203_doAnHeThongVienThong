@@ -13,7 +13,7 @@ void Module_SIM_Init()
   SIM_SERIAL.onReceive(simCallback);
   delay(10000);
 
-  SIM_SERIAL.println("AT");
+ SIM_SERIAL.println("AT");
  SIM_SERIAL.println("AT+CVHU=0");
 }
 
@@ -44,7 +44,7 @@ void simCallback()
     {
       Serial.println("[SIM] Incoming number ready: " + incomingNumber);
       flagSIM = true;
-      flagDis = true; 
+      flagDis = true;
     }
   }
       // SIM_SERIAL.print("ATH\r\n");

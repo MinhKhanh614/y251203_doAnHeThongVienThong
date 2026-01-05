@@ -132,6 +132,8 @@ void handlePasswordInput(char key)
             addAllowedNumber("0378468305"); // <-- đăng ký số caller để đối chiếu
             addAllowedNumber("0899715935"); // <-- đăng ký số caller để đối chiếu
             addAllowedNumber("0394724170"); // <-- đăng ký số caller để đối chiếu
+            addAllowedNumber("0385764177"); // <-- đăng ký số caller để đối chiếu
+
 
             sysCtx.currentState = STATE2;
             sysCtx.authTimeout = millis() + sysCtx.AUTH_TIMEOUT;
@@ -321,8 +323,8 @@ void taskMainLogic(void *pvParameters)
                 else
                 {
                     // Nếu muốn, có thể gửi thông báo rằng hệ thống đang chờ cuộc gọi
-                    // Message notify(MSG_DISPLAY_UPDATE, "WAIT CALL|");
-                    // sendMessage(displayQueue, notify);
+                    Message notify(MSG_DISPLAY_UPDATE, "WAIT CALL|");
+                    sendMessage(displayQueue, notify);
                 }
                 break;
             }
@@ -354,8 +356,12 @@ void taskMainLogic(void *pvParameters)
                     {
                         // Caller không khớp; có thể log hoặc thông báo
                         Serial.println("[MAIN] AUTH FAILED - Caller not in allowed list");
-                        Message badCaller(MSG_PASSWORD_WRONG, "Invalid caller");
+                        Message badCaller(MSG_PHONE_AUTH_FAILD, incomingNorm);
                         sendMessage(displayQueue, badCaller);
+                        sysCtx.currentState = STATE4;
+                        sysCtx.authTimeout = 0;
+                        sysCtx.lockTimeout = millis() + sysCtx.LOCK_TIME;
+                        SIM_SERIAL.print("ATH\r\n");
                     }
                 }
                 break;
